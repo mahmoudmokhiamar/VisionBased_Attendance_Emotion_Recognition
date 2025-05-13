@@ -1,28 +1,41 @@
+import os
 import pandas as pd
+from typing import Optional
 from datetime import datetime
 
-def log_attendance(name, emotion, csv_path="attendance.csv"):
-    """
-    Log the student's name, timestamp, and emotion to the CSV file.
-    Avoid duplicate entries for the same person in one session.
-    """
-    now = datetime.now()
-    timestamp = now.strftime("%Y-%m-%d %H:%M:%S")
-    
-    try:
-        # Load existing data if exists
+class AttendanceLogger:
+    def __init__(self, file_path: str = "attendance.xlsx"):
+        self.file_path = file_path
+        self.session_id = datetime.now().strftime("%Y%m%d_%H%M")
+        self.logged = set()
+        self._init_file()
+
+    def _init_file(self):
+        if not os.path.exists(self.file_path):
+            pd.DataFrame(columns=['Name', 'Emotion', 'Timestamp', 'Session']).to_excel(self.file_path, index=False)
+
+    def log(self, name: str, emotion: str) -> bool:
+        if name in self.logged:
+            return False
+            
+        record = {
+            'Name': name,
+            'Emotion': emotion,
+            'Timestamp': datetime.now(),
+            'Session': self.session_id
+        }
+
         try:
-            df = pd.read_csv(csv_path)
-        except FileNotFoundError:
-            df = pd.DataFrame(columns=["Name", "Time", "Emotion"])
-        
-        # Check if already logged in this session
-        if not ((df["Name"] == name) & (df["Time"].str.contains(now.strftime("%Y-%m-%d")))).any():
-            new_entry = pd.DataFrame([[name, timestamp, emotion]], columns=["Name", "Time", "Emotion"])
-            df = pd.concat([df, new_entry], ignore_index=True)
-            df.to_csv(csv_path, index=False)
-            print(f"[INFO] Logged attendance for {name} at {timestamp}")
-        else:
-            print(f"[INFO] {name} already logged today.")
-    except Exception as e:
-        print(f"[ERROR] Failed to log attendance: {e}")
+            if self.file_path.endswith('.xlsx'):
+                df = pd.read_excel(self.file_path)
+                df = pd.concat([df, pd.DataFrame([record])])
+                df.to_excel(self.file_path, index=False)
+            else:
+                df = pd.DataFrame([record])
+                df.to_csv(self.file_path, mode='a', header=not os.path.exists(self.file_path), index=False)
+            
+            self.logged.add(name)
+            return True
+        except Exception as e:
+            print(f"[ATTENDANCE] Error: {str(e)}")
+            return False

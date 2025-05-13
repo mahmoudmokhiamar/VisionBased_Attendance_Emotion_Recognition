@@ -1,30 +1,45 @@
 import cv2
+import numpy as np
+from typing import Optional
 
-def draw_overlay(frame, name=None, emotion=None, attendance_marked=False):
-    """
-    Draw name, emotion, and attendance status on the webcam frame.
-    """
-    overlay_text = ""
-    
-    # Append the name and emotion to the overlay text
-    if name:
-        overlay_text += f"Name: {name}  "
-    if emotion:
-        overlay_text += f"Emotion: {emotion}  "
-    
-    # Add attendance status if marked
-    if attendance_marked:
-        overlay_text += "✓ Marked Present"
-    
-    # Set position and font
-    font = cv2.FONT_HERSHEY_SIMPLEX
-    position = (10, 30)  # Adjust the starting position of the text
-    font_scale = 0.8
-    font_color = (0, 255, 0) if attendance_marked else (0, 0, 255)  # Green if marked, red otherwise
-    thickness = 2
-    
-    # Draw text if there's any to display
-    if overlay_text:
-        cv2.putText(frame, overlay_text, position, font, font_scale, font_color, thickness, cv2.LINE_AA)
+class UIDisplay:
+    def __init__(self):
+        self.colors = {
+            'happy': (0, 255, 0),
+            'neutral': (255, 255, 0),
+            'sad': (0, 0, 255),
+            'angry': (0, 0, 180),
+            'fear': (255, 0, 255),
+            'surprise': (0, 255, 255),
+            'confused': (255, 0, 0),
+            'default': (255, 255, 255)
+        }
 
-    return frame
+    def draw_overlay(self, frame: np.ndarray, name: Optional[str], 
+                    emotion: str, new_log: bool = False) -> np.ndarray:
+        h, w = frame.shape[:2]
+        
+        # Status bar background
+        cv2.rectangle(frame, (0, 0), (w, 70), (50, 50, 50), -1)
+        
+        # Draw face bounding box if recognized
+        if name:
+            color = self.colors.get(emotion.lower(), self.colors['default'])
+            cv2.rectangle(frame, (0, 70), (w, h), color, 2)
+            
+            # Display info
+            cv2.putText(frame, f"User: {name}", (10, 25), 
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+            cv2.putText(frame, f"Emotion: {emotion}", (10, 50), 
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
+            
+            if new_log:
+                cv2.putText(frame, "RECORDED", (w-120, 45), 
+                          cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+                cv2.drawMarker(frame, (w-150, 35), (0, 255, 0), 
+                             markerType=cv2.MARKER_TILTED_CROSS, thickness=2)
+        else:
+            cv2.putText(frame, "No authorized face detected", (10, 40), 
+                      cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+        
+        return frame
